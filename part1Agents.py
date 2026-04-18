@@ -161,7 +161,7 @@ class WizardAstar(WizardSearchAgent):
         portal_loc: Location
 
     paths: dict[SearchState, tuple[float, list[WizardMoves]]] = {}
-    search_pq: list[tuple[float, SearchState]] = []
+    search_pq: list[tuple[float, SearchState]] = [] # Frontier
     initial_game_state: GameState
 
     def search_to_game(self, search_state: SearchState) -> GameState:
@@ -195,6 +195,7 @@ class WizardAstar(WizardSearchAgent):
         self.paths = {}
         self.paths[initial_search_state] = 0, []
         self.search_pq = [(0, initial_search_state)]
+        heapq.heapify(self.search_pq)
 
     def is_goal(self, state: SearchState) -> bool:
         return state.wizard_loc == state.portal_loc
@@ -202,20 +203,55 @@ class WizardAstar(WizardSearchAgent):
     def cost(self, source: GameState, target: GameState, action: WizardMoves) -> float:
         return 1
 
-    def heuristic(self, target: GameState) -> float:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+    def heuristic(self, n: GameState) -> float:
+        """ Manhattan Distance to the portal """
+        curr_search_state = self.game_to_search(n)
 
+        pos = curr_search_state.wizard_loc
+        goal = curr_search_state.portal_loc
+
+        x_diff = abs(pos.row - goal.row)
+        y_diff = abs(pos.col - goal.col)
+
+        return x_diff + y_diff
+    
     def next_search_expansion(self) -> GameState | None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+
+        curr_state = heapq.heappop(self.search_pq)[1]
+
+        if (self.is_goal(curr_state)): # Goal Found
+            path_to_curr = self.paths[curr_state][1]
+            moves = path_to_curr.copy()
+            moves.reverse()
+            self.plan = moves
+            return
+
+        return self.search_to_game(curr_state)
 
     def process_search_expansion(
         self, source: GameState, target: GameState, action: WizardMoves
     ) -> None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+        cost_index = 0
+        path_to_state_index = 1
+        
+        source_search = self.game_to_search(source)
+        target_search = self.game_to_search(target)
+        source_cost, source_path = self.paths[source_search]
+        target_path = source_path + [action]
 
+        if (target_search in self.paths): return
+        
+        # g(n)
+        target_true_cost = source_cost + self.cost(source, target, action)
+        # f(n) = g(n) + h(n)
+        step_combined_cost = target_true_cost + self.heuristic(target)
+
+        # Update Frontier
+        heapq.heappush(self.search_pq, (step_combined_cost, target_search))
+        
+        # Update Visited
+        cost_to_source, path_to_source = self.paths[source_search]
+        self.paths[target_search] = (target_true_cost, path_to_source + [action])
 
 class CrystalSearchWizard(WizardSearchAgent):
     # TODO: YOUR CODE HERE
