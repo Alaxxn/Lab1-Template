@@ -17,10 +17,12 @@ from dataclasses import dataclass
 
 class WizardDFS(WizardSearchAgent):
     @dataclass(eq=True, frozen=True, order=True)
+
     class SearchState:
         wizard_loc: Location
         portal_loc: Location
 
+    # (Node, path_to_node)
     paths: dict[SearchState, list[WizardMoves]] = {}
     search_stack: list[SearchState] = []
     initial_game_state: GameState
@@ -59,16 +61,33 @@ class WizardDFS(WizardSearchAgent):
 
     def is_goal(self, state: SearchState) -> bool:
         return state.wizard_loc == state.portal_loc
-
+        
     def next_search_expansion(self) -> GameState | None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+        current_search_state = self.search_stack.pop()
+        return self.search_to_game(current_search_state) # Expand current state
 
     def process_search_expansion(
         self, source: GameState, target: GameState, action: WizardMoves
     ) -> None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+        """
+        source -> Game state passed by next_search_expansion
+        action -> Direction of wizard move 
+        target -> Resulting game state after action
+        """
+
+        source_search = self.game_to_search(source)
+        target_search = self.game_to_search(target)
+        path_to_target = self.paths[source_search] + [action]
+
+        if (target_search in self.paths): return # skip states already visited
+        
+        self.search_stack.append(target_search) # Update Frontier
+        self.paths[target_search] = path_to_target # Update Visited 
+
+        if (self.is_goal(target_search)): # Goal Found
+            moves = path_to_target.copy()
+            moves.reverse() # for game engine, uses pop() for next move
+            self.plan = moves # Ends Search
 
 
 class WizardBFS(WizardSearchAgent):
@@ -126,6 +145,32 @@ class WizardBFS(WizardSearchAgent):
         # TODO: YOUR CODE HERE
         raise NotImplementedError
 
+# def next_search_expansion(self) -> GameState | None:
+#         current_search_state = self.search_stack.pop()
+#         return self.search_to_game(current_search_state) # Expand current state
+
+#     def process_search_expansion(
+#         self, source: GameState, target: GameState, action: WizardMoves
+#     ) -> None:
+#         """
+#         source -> Game state passed by next_search_expansion
+#         action -> Direction of wizard move 
+#         target -> Resulting game state after action
+#         """
+
+#         source_search = self.game_to_search(source)
+#         target_search = self.game_to_search(target)
+#         path_to_target = self.paths[source_search] + [action]
+
+#         if (target_search in self.paths): return # skip states already visited
+        
+#         self.search_stack.append(target_search) # Update Frontier
+#         self.paths[target_search] = path_to_target # Update Visited 
+
+#         if (self.is_goal(target_search)): # Goal Found
+#             moves = path_to_target.copy()
+#             moves.reverse() # for game engine, uses pop() for next move
+#             self.plan = moves # Ends Search
 
 class WizardAstar(WizardSearchAgent):
     @dataclass(eq=True, frozen=True, order=True)
@@ -207,8 +252,10 @@ class CrystalSearchWizard(WizardSearchAgent):
         raise NotImplementedError
 
 
-
 class SuboptimalCrystalSearchWizard(CrystalSearchWizard):
+    class SearchState:
+        wizard_loc: Location
+        portal_loc: Location
 
     def heuristic(self, target: SearchState) -> float:
         # TODO YOUR CODE HERE
