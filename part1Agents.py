@@ -89,7 +89,6 @@ class WizardDFS(WizardSearchAgent):
             moves.reverse() # for game engine, uses pop() for next move
             self.plan = moves # Ends Search
 
-
 class WizardBFS(WizardSearchAgent):
     @dataclass(eq=True, frozen=True, order=True)
     class SearchState:
@@ -136,41 +135,25 @@ class WizardBFS(WizardSearchAgent):
         return state.wizard_loc == state.portal_loc
 
     def next_search_expansion(self) -> GameState | None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+        current_search_state = self.search_stack.pop(0)
+        return self.search_to_game(current_search_state)
 
     def process_search_expansion(
         self, source: GameState, target: GameState, action: WizardMoves
     ) -> None:
-        # TODO: YOUR CODE HERE
-        raise NotImplementedError
+        source_search = self.game_to_search(source)
+        target_search = self.game_to_search(target)
+        path_to_target = self.paths[source_search] + [action]
 
-# def next_search_expansion(self) -> GameState | None:
-#         current_search_state = self.search_stack.pop()
-#         return self.search_to_game(current_search_state) # Expand current state
-
-#     def process_search_expansion(
-#         self, source: GameState, target: GameState, action: WizardMoves
-#     ) -> None:
-#         """
-#         source -> Game state passed by next_search_expansion
-#         action -> Direction of wizard move 
-#         target -> Resulting game state after action
-#         """
-
-#         source_search = self.game_to_search(source)
-#         target_search = self.game_to_search(target)
-#         path_to_target = self.paths[source_search] + [action]
-
-#         if (target_search in self.paths): return # skip states already visited
+        if (target_search in self.paths): return # skip states already visited
         
-#         self.search_stack.append(target_search) # Update Frontier
-#         self.paths[target_search] = path_to_target # Update Visited 
+        self.search_stack.append(target_search) # Update Frontier
+        self.paths[target_search] = path_to_target # Update Visited 
 
-#         if (self.is_goal(target_search)): # Goal Found
-#             moves = path_to_target.copy()
-#             moves.reverse() # for game engine, uses pop() for next move
-#             self.plan = moves # Ends Search
+        if (self.is_goal(target_search)): # Goal Found
+            moves = path_to_target.copy()
+            moves.reverse() # for game engine, uses pop() for next move
+            self.plan = moves # Ends Search
 
 class WizardAstar(WizardSearchAgent):
     @dataclass(eq=True, frozen=True, order=True)

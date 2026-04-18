@@ -98,6 +98,7 @@ if __name__ == "__main__":
 
     for _ in game.state.get_all_entity_locations(Wizard):
         agent = available_agents[args.agent](game.state)
+        print(f"using {agent}")
         if isinstance(agent, CrystalSearchWizard):
             game.require_crystal = True
         elif isinstance(agent, ReasoningWizard):
