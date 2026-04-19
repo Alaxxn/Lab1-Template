@@ -266,7 +266,7 @@ class CrystalSearchWizard(WizardSearchAgent):
     paths: dict[SearchCrystalState, tuple[float, list[WizardMoves]]] = {}
     search_pq: list[tuple[float, SearchCrystalState]] = []
     initial_game_state: GameState
-    best_score = 0
+    best_score = 0 # Progress bar
 
     def __init__(self, initial_state: GameState):
         self.start_search(initial_state)
@@ -285,14 +285,14 @@ class CrystalSearchWizard(WizardSearchAgent):
 
         new_game_state = (
             self.initial_game_state.replace_entity(
-                initial_wizard_loc.row, initial_wizard_loc.col, EmptyEntity()
-            )
+                initial_wizard_loc.row, initial_wizard_loc.col, EmptyEntity())
             .replace_entity(
                 search_state.wizard_loc.row, search_state.wizard_loc.col, initial_wizard
             )
             .replace_active_entity_location(search_state.wizard_loc)
         )
 
+        # Clear Crystals
         all_crystals = new_game_state.get_all_entity_locations(Crystal)
         for crystal in all_crystals:
             if (crystal not in search_state.unvisited_crystals): #Already Picked Up
@@ -323,20 +323,60 @@ class CrystalSearchWizard(WizardSearchAgent):
         return x_diff + y_diff
         
     def heuristic(self, state: SearchCrystalState) -> float:
-        """ STARTING TRIVIAL SOL: Distance to nearest Goal """
+        """ Distance to nearest reachable goal """
 
-        if (state.unvisited_crystals): # Find the nearest crystal
-            min_dist = float('inf')
-            for crystal in state.unvisited_crystals:
-                distance = self.manhattan_distance(state.wizard_loc, crystal)
-                if (distance < min_dist):
-                    min_dist = distance
-            return int(min_dist)
+        if (not state.unvisited_crystals): # All Crystals picked up
+            return self.manhattan_distance(state.wizard_loc, state.portal_loc)
+
+        # BFS to Nearest Move
+        from model import Wall
+        temp_paths = { state : []}
+        queue = [state]
+
+        wall_tiles = self.search_to_game(state).get_all_tile_locations(Wall)
+
+        while(queue):
+            temp_search_state = queue.pop(0)
+            temp_game_state = self.search_to_game(temp_search_state)
+            valid_moves: dict[WizardMoves : Location] = {}
+            
+            # Find Valid Moves
+            rows, cols = self.initial_game_state.grid_size
+            for move in WizardMoves:
+
+                row = temp_game_state.active_entity_location.row + move.value[0]
+                col = temp_game_state.active_entity_location.col + move.value[1]
+
+                # Removing invalid Moves
+                in_bounds = 0 <= row < rows and 0 <= col < cols
+                if not in_bounds:
+                    continue
+
+                new_loc = Location(row, col)
+                if new_loc in wall_tiles: continue
+
+                # Add valid move
+                valid_moves[move] = new_loc
+ 
+            for move, new_loc in valid_moves.items(): # Iterate over possible new states
+
+                # Found Crystal
+                if (new_loc in temp_search_state.unvisited_crystals):
+                    return len(temp_paths[temp_search_state]) + 1
+
+                # New State
+                portal_loc = temp_search_state.portal_loc
+                unvisited = temp_search_state.unvisited_crystals
+                new_state = self.SearchCrystalState(new_loc, portal_loc, unvisited)
+
+                if (new_state in temp_paths): # Skip already visited state
+                    continue
+                else:
+                    #Update
+                    temp_paths[new_state] = temp_paths[temp_search_state] + [move]
+                    queue.append(new_state)
+                
         
-        else: # Find The portal
-            target = state.portal_loc
-            return self.manhattan_distance(state.wizard_loc, target)
-
     def next_search_expansion(self) -> GameState | None:
         cost, curr_state = heapq.heappop(self.search_pq)
 
@@ -367,12 +407,16 @@ class CrystalSearchWizard(WizardSearchAgent):
 
 
 
-
 class SuboptimalCrystalSearchWizard(CrystalSearchWizard):
-    class SearchState:
+    @dataclass(eq=True, frozen=True, order=True)
+    class SearchCrystalState:
         wizard_loc: Location
         portal_loc: Location
+        unvisited_crystals: tuple[Location]
 
-    def heuristic(self, target: SearchState) -> float:
+
+    def heuristic(self, target: SearchCrystalState) -> float:
+        """ An inadmissible heuristic """
         # TODO YOUR CODE HERE
         raise NotImplementedError
+ 
