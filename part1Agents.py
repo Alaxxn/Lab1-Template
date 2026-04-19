@@ -321,9 +321,41 @@ class CrystalSearchWizard(WizardSearchAgent):
         x_diff = abs(pos.row - target.row)
         y_diff = abs(pos.col - target.col)
         return x_diff + y_diff
+    
+    def compute_mst(self, crystals: tuple[Location, ...]) -> int:
+        """ Returns the MST cost over the given crystal locations"""
+
+        if len(crystals) <= 1: return 0
+
+        visited = {crystals[0]}
+        total_cost = 0
+
+        # Keep adding the closest unvisited crystal until all are connected
+        while len(visited) < len(crystals):
+
+            best_edge_cost = float("inf")
+            next_crystal = None
+
+            # Finds closest crystal to the network
+            for v in visited:
+                for crystal in crystals:
+                    if crystal in visited:
+                        continue # Skip already included crystals
+                    
+                    # Compute edge weight (Manhattan distance)
+                    dist = self.manhattan_distance(v, crystal)
+                    if dist < best_edge_cost:
+                        best_edge_cost = dist
+                        next_crystal = crystal
+
+            # Update connected network
+            total_cost += best_edge_cost
+            visited.add(next_crystal)
+
+        return total_cost
         
     def heuristic(self, state: SearchCrystalState) -> float:
-        """ Distance to nearest reachable goal """
+        """ Distance to nearest reachable goal + MST (remaining crystals) """
 
         if (not state.unvisited_crystals): # All Crystals picked up
             return self.manhattan_distance(state.wizard_loc, state.portal_loc)
@@ -362,7 +394,8 @@ class CrystalSearchWizard(WizardSearchAgent):
 
                 # Found Crystal
                 if (new_loc in temp_search_state.unvisited_crystals):
-                    return len(temp_paths[temp_search_state]) + 1
+                    mst = self.compute_mst(temp_search_state.unvisited_crystals)
+                    return len(temp_paths[temp_search_state]) + 1 + mst
 
                 # New State
                 portal_loc = temp_search_state.portal_loc
