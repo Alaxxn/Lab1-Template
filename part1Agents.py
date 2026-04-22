@@ -438,8 +438,6 @@ class CrystalSearchWizard(WizardSearchAgent):
         self.paths[target_search] = (target_true_cost, target_path)
 
 
-
-
 class SuboptimalCrystalSearchWizard(CrystalSearchWizard):
     @dataclass(eq=True, frozen=True, order=True)
     class SearchCrystalState:
