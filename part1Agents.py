@@ -311,8 +311,8 @@ class CrystalSearchWizard(WizardSearchAgent):
         return self.SearchCrystalState(wizard_loc, portal_loc, tuple(crystals))
 
     def is_final(self, state: SearchCrystalState) -> bool:
-        return (len(state.unvisited_crystals) == 0 and state.wizard_loc == state.portal_loc
-)
+        return (len(state.unvisited_crystals) == 0 and state.wizard_loc == state.portal_loc)
+    
     def cost(self, source: GameState, target: GameState, action: WizardMoves) -> float:
         return 1
 
@@ -365,50 +365,22 @@ class CrystalSearchWizard(WizardSearchAgent):
         temp_paths = { state : []}
         queue = [state]
 
-        wall_tiles = self.search_to_game(state).get_all_tile_locations(Wall)
+        game_state = self.search_to_game(state)
 
-        while(queue):
-            temp_search_state = queue.pop(0)
-            temp_game_state = self.search_to_game(temp_search_state)
-            valid_moves: dict[WizardMoves : Location] = {}
-            
-            # Find Valid Moves
-            rows, cols = self.initial_game_state.grid_size
-            for move in WizardMoves:
+        crystals = game_state.get_all_entity_locations(Crystal)
+        nearest_to_wizard = float('inf')
 
-                row = temp_game_state.active_entity_location.row + move.value[0]
-                col = temp_game_state.active_entity_location.col + move.value[1]
+        # Distance to nearest Crystal
+        for crystal in crystals:
+            dist = self.manhattan_distance(crystal, state.wizard_loc)
+            if (dist < nearest_to_wizard):
+                nearest_to_wizard = dist
+        
+        # Connecting all Crystals
+        mst = self.compute_mst(state.unvisited_crystals)
 
-                # Removing invalid Moves
-                in_bounds = 0 <= row < rows and 0 <= col < cols
-                if not in_bounds:
-                    continue
+        return nearest_to_wizard + mst
 
-                new_loc = Location(row, col)
-                if new_loc in wall_tiles: continue
-
-                # Add valid move
-                valid_moves[move] = new_loc
- 
-            for move, new_loc in valid_moves.items(): # Iterate over possible new states
-
-                # Found Crystal
-                if (new_loc in temp_search_state.unvisited_crystals):
-                    mst = self.compute_mst(temp_search_state.unvisited_crystals)
-                    return len(temp_paths[temp_search_state]) + 1 + mst
-
-                # New State
-                portal_loc = temp_search_state.portal_loc
-                unvisited = temp_search_state.unvisited_crystals
-                new_state = self.SearchCrystalState(new_loc, portal_loc, unvisited)
-
-                if (new_state in temp_paths): # Skip already visited state
-                    continue
-                else:
-                    #Update
-                    temp_paths[new_state] = temp_paths[temp_search_state] + [move]
-                    queue.append(new_state)
-                
         
     def next_search_expansion(self) -> GameState | None:
         cost, curr_state = heapq.heappop(self.search_pq)
