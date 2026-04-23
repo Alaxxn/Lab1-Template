@@ -58,22 +58,39 @@ class WizardMiniMax(ReasoningWizard):
     
     def evaluation(self, state: GameState) -> float:
 
-        ""
-        # Want to maximize this eval at each step
+        # Evaluatet terminal states
+        wizard_locs = state.get_all_entity_locations(Wizard)
+        if len(wizard_locs) == 0: # Wizard Lost
+            return float('-inf')
+
+        wizard_loc = wizard_locs[0]
         portal_loc = state.get_all_tile_locations(Portal)[0]
-        goblin_loc = state.get_all_entity_locations(Goblin)[0]
+        if wizard_loc == portal_loc: # Wizard Won
+            return float('inf')
+        
+        # Non-terminal Evals
+        portal_loc = state.get_all_tile_locations(Portal)[0]
+        goblin_locs = state.get_all_entity_locations(Goblin)
         wiz_loc = state.get_all_entity_locations(Wizard)[0]
         
-        portal_dist = self.manhattan_distance(wiz_loc, portal_loc)
-        goblin_dist = self.manhattan_distance(wiz_loc, goblin_loc)
+        if len(goblin_locs) > 0: # Only worry about nearest goblin
+            nearest_goblin = float('inf')
+            for loc in goblin_locs:
+                dist = self.manhattan_distance(loc, wiz_loc)
+                if (dist < nearest_goblin):
+                    nearest_goblin = dist
+        else:
+            nearest_goblin = 999 #
         
+        portal_dist = self.manhattan_distance(wiz_loc, portal_loc)
+
         score = 0
         score -= 10 * portal_dist # Want to reward movement toward goal
-        score += 2 * goblin_dist # Want to penalize getting near goblin
+        score += 2 * nearest_goblin # Want to penalize getting near goblin
 
-        if goblin_dist <= 1: # RUN AWAY
+        if nearest_goblin <= 1: # RUN AWAY
             score -= 100
-        elif goblin_dist == 2: # Move Back
+        elif nearest_goblin == 2: # Move Back
             score -= 20
         
         return score
@@ -92,42 +109,63 @@ class WizardMiniMax(ReasoningWizard):
         return False
 
     def react(self, state: GameState) -> WizardMoves:
-        best_move, gain = self.minimax(state, self.max_depth)
-        return  best_move if best_move is not None else WizardMoves.STAY
+
+        best_eval = float('-inf')
+        best_move = WizardMoves.STAY 
+
+        for action, next_state in self.get_successors(state):
+  
+            if (action == WizardMoves.STAY):
+                continue
+
+            action_eval = self.minimax(next_state, self.max_depth - 1)
+            if action_eval > best_eval:
+                best_eval = action_eval
+                best_move = action
+
+        print(best_move, best_eval )
+        return  best_move
 
 
     def minimax(self, state: GameState, depth: int):
+        """ returns the best possible evaluation for the active enity"""
 
-        if (self.is_terminal(state)): # Game Ended
-            wiz_locs = state.get_all_entity_locations(Wizard)
-            if (len(wiz_locs) == 0): # Wizard never reached the goal
-                return (None, float('-inf'))
-            else: # Wizard WON
-                return (None, float('inf'))
+        if (self.is_terminal(state) or (depth == 0)):
+            return self.evaluation(state)
 
-        if (depth == 0): # Evaluate Leaf
-            return (None, self.evaluation(state))        
+        active = state.get_active_entity()    
+
+        if isinstance(active, Wizard):
+            return self.wizard_maximizer(state, depth)
+        else :
+            return self.goblin_minimizer(state, depth)
+
+
+    def goblin_minimizer(self, state, depth) -> float: 
+
+        if (self.is_terminal(state)) or (depth == 0):
+            return self.evaluation(state)
         
-        move = None
-        active = state.get_active_entity()
+        v = float('inf')
+        for _, next_state in self.get_successors(state):
+            next_entity = next_state.get_active_entity()
+            if isinstance(next_entity, Wizard):
+                v = min(v, self.wizard_maximizer(next_state, depth - 1))
+            else:
+                v = min(v, self.goblin_minimizer(next_state, depth))
 
-        if isinstance(active, Wizard): #Maximizer
-            best_eval = float ('-inf')
-            for action, result in self.get_successors(state):
-                val = self.minimax(result, depth - 1)[1]
-                if (val > best_eval):
-                    move = action
-                    best_eval = val              
-            return (move, best_eval)
+        return v 
+
+    def wizard_maximizer(self, state: GameState, depth: int) -> float:
+
+        if (self.is_terminal(state)) or (depth == 0):
+            return self.evaluation(state)
         
-        else : # Minimizer
-            best_eval = float('inf')
-            for action, result in self.get_successors(state):
-                val = self.minimax(result, depth)[1] # Does not affect depth
-                if (val < best_eval):
-                    move = action
-                    best_eval = val
-            return (move, best_eval)
+        v = float('-inf')
+        for _, next_state in self.get_successors(state):
+            v = max(v, self.goblin_minimizer(next_state, depth))
+        
+        return v
 
 
 class WizardAlphaBeta(ReasoningWizard):
