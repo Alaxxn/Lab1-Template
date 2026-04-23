@@ -380,8 +380,7 @@ class CrystalSearchWizard(WizardSearchAgent):
         mst = self.compute_mst(state.unvisited_crystals)
 
         return nearest_to_wizard + mst
-
-        
+     
     def next_search_expansion(self) -> GameState | None:
         cost, curr_state = heapq.heappop(self.search_pq)
 
@@ -420,6 +419,5 @@ class SuboptimalCrystalSearchWizard(CrystalSearchWizard):
 
     def heuristic(self, target: SearchCrystalState) -> float:
         """ An inadmissible heuristic """
-        # TODO YOUR CODE HERE
-        raise NotImplementedError
+        return super().heuristic(target) * 2
  
